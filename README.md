@@ -1,6 +1,10 @@
-# BuildBox
+# BuilderForge
 
-BuildBox is a smart AI chat interface with integrated code editing capabilities. It provides a seamless experience for developers to interact with an AI assistant while working on coding tasks.
+BuilderForge is a smart AI chat interface with integrated code editing capabilities. It provides a seamless experience for developers to interact with an AI assistant while working on coding tasks.
+
+<div align="center">
+  <img src="public/logo.svg" alt="BuilderForge Logo" width="200">
+</div>
 
 ## Features
 
@@ -31,8 +35,8 @@ BuildBox is a smart AI chat interface with integrated code editing capabilities.
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/buildbox.git
-   cd buildbox
+   git clone https://github.com/yourusername/builderforge.git
+   cd builderforge
    ```
 
 2. Install dependencies
@@ -93,7 +97,7 @@ pnpm build
 
 ## Authentication
 
-BuildBox uses Clerk for authentication and user management. The authentication flow includes:
+BuilderForge uses Clerk for authentication and user management. The authentication flow includes:
 
 - Sign up/Sign in pages
 - User profile management
@@ -106,7 +110,7 @@ While Clerk handles authentication, Supabase is used for database operations. Th
 ## Project Structure
 
 ```
-buildbox/
+builderforge/
 ├── app/                  # Next.js app router pages
 │   ├── api/              # API routes
 │   ├── chat/             # Chat interface
