@@ -1,97 +1,209 @@
 'use client'
 
-import { useState } from "react"
+import React, { useState, useEffect, useRef } from 'react';
+import { ModelClient } from './model-client';
+import { ModelType, Message, ChatConfig } from './types';
+import { generateChatConfig, getSystemPrompt } from './system-prompt';
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Copy, Download, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
-interface Message {
-  role: "agent" | "user"
-  content: string
-  timestamp: string
+interface ChatInterfaceProps {
+  initialModel?: ModelType;
 }
 
-export default function ChatInterface() {
-  const [input, setInput] = useState("")
-  const [messages] = useState<Message[]>([
-    {
-      role: "agent",
-      content: "Hello, I am a generative AI agent. How may I assist you today?",
-      timestamp: "4:08:28 PM"
-    },
-    {
-      role: "user",
-      content: "Hi, I'd like to check my bill.",
-      timestamp: "4:08:37 PM"
-    },
-    {
-      role: "agent",
-      content: "Please hold for a second.\n\nOk, I can help you with that\n\nI'm pulling up your current bill information\n\nYour current bill is $150, and it is due on August 31, 2024.\n\nIf you need more details, feel free to ask!",
-      timestamp: "4:08:37 PM"
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
+  initialModel = 'combined' 
+}) => {
+  const [config] = useState<ChatConfig>(generateChatConfig());
+  const [selectedModel, setSelectedModel] = useState<ModelType>(initialModel);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [token, setToken] = useState('');
+  const modelClientRef = useRef<ModelClient | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize the model client
+  useEffect(() => {
+    const modelClient = new ModelClient(config);
+    modelClientRef.current = modelClient;
+
+    // Try to get token from environment
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('github_token');
+      if (storedToken) {
+        setToken(storedToken);
+        modelClient.setToken(storedToken);
+      }
     }
-  ])
+
+    // Add system message for the selected model
+    const systemMessage: Message = {
+      role: 'system',
+      content: getSystemPrompt(selectedModel)
+    };
+    setMessages([systemMessage]);
+  }, [config]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  // Update system message when model changes
+  useEffect(() => {
+    if (messages.length > 0 && messages[0].role === 'system') {
+      const systemMessage: Message = {
+        role: 'system',
+        content: getSystemPrompt(selectedModel)
+      };
+      setMessages(prev => [systemMessage, ...prev.slice(1)]);
+    }
+  }, [selectedModel]);
+
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedModel(e.target.value as ModelType);
+  };
+
+  const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setToken(e.target.value);
+  };
+
+  const saveToken = () => {
+    if (token && modelClientRef.current) {
+      localStorage.setItem('github_token', token);
+      modelClientRef.current.setToken(token);
+      alert('GitHub token saved!');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!input.trim() || !modelClientRef.current) return;
+
+    // Check if token is set
+    if (!token) {
+      alert('Please enter your GitHub token first');
+      return;
+    }
+
+    const userMessage: Message = {
+      role: 'user',
+      content: input
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await modelClientRef.current.chatCompletion(
+        selectedModel,
+        [...messages, userMessage]
+      );
+
+      if (response.choices && response.choices.length > 0) {
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: response.choices[0].message.content
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      console.error('Error getting response:', error);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="flex-1 flex flex-col">
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex gap-2 max-w-[80%]",
-                message.role === "user" && "ml-auto"
-              )}
-            >
-              {message.role === "agent" && (
-                <div className="h-8 w-8 rounded-full bg-primary flex-shrink-0" />
-              )}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    {message.role === "agent" ? "GenerativeAgent" : "G5"}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {message.timestamp}
-                  </span>
-                </div>
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                </div>
-                {message.role === "agent" && (
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <ThumbsUp className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <ThumbsDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+    <div className="flex flex-col h-screen bg-gray-900 text-white">
+      {/* Header */}
+      <header className="bg-gray-800 p-4 flex justify-between items-center">
+        <div className="flex items-center">
+          <div className="h-8 w-8 rounded-lg bg-violet-600 text-white flex items-center justify-center font-bold text-lg mr-2">B</div>
+          <h1 className="text-xl font-bold">BuildBox</h1>
         </div>
-      </ScrollArea>
-      <div className="p-4 border-t">
-        <div className="flex gap-2">
-          <Textarea
-            placeholder="Type a message as a customer"
+        <div className="flex items-center space-x-2">
+          <input
+            type="password"
+            value={token}
+            onChange={handleTokenChange}
+            placeholder="GitHub Token"
+            className="px-3 py-1 bg-gray-700 rounded-md text-white text-sm"
+          />
+          <button 
+            onClick={saveToken}
+            className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1 rounded-md text-sm"
+          >
+            Save Token
+          </button>
+          <select 
+            value={selectedModel}
+            onChange={handleModelChange}
+            className="bg-gray-700 text-white px-3 py-1 rounded-md text-sm"
+          >
+            {config.models.map(model => (
+              <option key={model.id} value={model.id}>
+                {model.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </header>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.filter(msg => msg.role !== 'system').map((message, index) => (
+          <div 
+            key={index} 
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div 
+              className={`max-w-3/4 p-3 rounded-lg ${
+                message.role === 'user' 
+                  ? 'bg-violet-600 text-white' 
+                  : 'bg-gray-700 text-white'
+              }`}
+            >
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            </div>
+          </div>
+        ))}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="p-4 bg-gray-800">
+        <div className="flex space-x-2">
+          <input
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="min-h-[44px] max-h-32"
+            placeholder="Type your message..."
+            className="flex-1 px-4 py-2 bg-gray-700 rounded-md text-white"
+            disabled={isLoading}
           />
-          <Button className="px-8">Send</Button>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-700 rounded-md font-medium disabled:opacity-50"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Thinking...' : 'Send'}
+          </button>
         </div>
-      </div>
+      </form>
     </div>
-  )
-}
+  );
+};
