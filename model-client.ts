@@ -23,10 +23,34 @@ export class ModelClient {
   constructor(config: ChatConfig) {
     this.config = config;
     
-    // Try to get token from environment variable if available
-    if (typeof process !== 'undefined' && process.env && process.env.GITHUB_TOKEN) {
-      this.token = process.env.GITHUB_TOKEN;
+    // Try to get token from environment variables with various possible names
+    const envToken = this.getTokenFromEnv();
+    if (envToken) {
+      this.token = envToken;
     }
+    
+    // For development/testing - hardcoded fallback token
+    // Remove this in production
+    if (!this.token) {
+      this.token = "default_development_token";
+      console.warn("Using default development token - replace with your actual token in .env file");
+    }
+  }
+
+  /**
+   * Try to get the token from various environment variable names
+   */
+  private getTokenFromEnv(): string | null {
+    if (typeof process === 'undefined' || !process.env) {
+      return null;
+    }
+
+    // Try different possible environment variable names
+    return process.env.GITHUB_TOKEN || 
+           process.env.NEXT_PUBLIC_GITHUB_TOKEN || 
+           process.env.API_TOKEN ||
+           process.env.NEXT_PUBLIC_API_TOKEN ||
+           null;
   }
 
   /**
@@ -205,125 +229,5 @@ export class ModelClient {
 
     // Get the next response from the model
     return this.chatCompletion(modelType, updatedMessages, options);
-  }
-
-  /**
-   * Store API keys securely in IndexedDB
-   */
-  async storeApiKey(keyName: string, keyValue: string): Promise<void> {
-    if (!this.config.security.storeApiKeysInIndexedDB) {
-      console.warn('API key storage in IndexedDB is disabled in configuration');
-      return;
-    }
-
-    if (typeof window === 'undefined' || !window.indexedDB) {
-      console.error('IndexedDB not available');
-      return;
-    }
-
-    const encryptionKey = typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
-      ? process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
-      : 'default-encryption-key';
-
-    // Simple encryption (for better security, use a proper encryption library)
-    const encryptedValue = this.config.security.encryptionEnabled
-      ? this.encryptValue(keyValue, encryptionKey) // Better encryption with key
-      : keyValue;
-
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('BuildBoxApiKeys', 1);
-
-      request.onupgradeneeded = (event: any) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains('apiKeys')) {
-          db.createObjectStore('apiKeys', { keyPath: 'name' });
-        }
-      };
-
-      request.onsuccess = (event: any) => {
-        const db = event.target.result;
-        const transaction = db.transaction(['apiKeys'], 'readwrite');
-        const store = transaction.objectStore('apiKeys');
-        
-        const storeRequest = store.put({ name: keyName, value: encryptedValue });
-        
-        storeRequest.onsuccess = () => resolve();
-        storeRequest.onerror = () => reject(new Error('Failed to store API key'));
-        
-        transaction.oncomplete = () => db.close();
-      };
-
-      request.onerror = () => reject(new Error('Failed to open database'));
-    });
-  }
-
-  /**
-   * Retrieve API key from IndexedDB
-   */
-  async getApiKey(keyName: string): Promise<string | null> {
-    if (typeof window === 'undefined' || !window.indexedDB) {
-      console.error('IndexedDB not available');
-      return null;
-    }
-
-    const encryptionKey = typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
-      ? process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
-      : 'default-encryption-key';
-
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('BuildBoxApiKeys', 1);
-
-      request.onsuccess = (event: any) => {
-        const db = event.target.result;
-        const transaction = db.transaction(['apiKeys'], 'readonly');
-        const store = transaction.objectStore('apiKeys');
-        
-        const getRequest = store.get(keyName);
-        
-        getRequest.onsuccess = () => {
-          const result = getRequest.result;
-          if (result) {
-            const decryptedValue = this.config.security.encryptionEnabled
-              ? this.decryptValue(result.value, encryptionKey) // Better decryption with key
-              : result.value;
-            resolve(decryptedValue);
-          } else {
-            resolve(null);
-          }
-        };
-        
-        getRequest.onerror = () => reject(new Error('Failed to retrieve API key'));
-        
-        transaction.oncomplete = () => db.close();
-      };
-
-      request.onerror = () => reject(new Error('Failed to open database'));
-    });
-  }
-
-  /**
-   * Simple encryption method (XOR with key)
-   * Note: This is not secure for production use, just a simple example
-   */
-  private encryptValue(value: string, key: string): string {
-    let result = '';
-    for (let i = 0; i < value.length; i++) {
-      const charCode = value.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-      result += String.fromCharCode(charCode);
-    }
-    return btoa(result); // Base64 encode the result
-  }
-
-  /**
-   * Simple decryption method (XOR with key)
-   */
-  private decryptValue(encryptedValue: string, key: string): string {
-    const encrypted = atob(encryptedValue); // Base64 decode
-    let result = '';
-    for (let i = 0; i < encrypted.length; i++) {
-      const charCode = encrypted.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-      result += String.fromCharCode(charCode);
-    }
-    return result;
   }
 } 

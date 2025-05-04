@@ -27,7 +27,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [token, setToken] = useState('');
   const [isCodingMode, setIsCodingMode] = useState(false);
   const [isServerProcessing, setIsServerProcessing] = useState(true);
   const [serverFailed, setServerFailed] = useState(false);
@@ -38,15 +37,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     const modelClient = new ModelClient(config);
     modelClientRef.current = modelClient;
-
-    // Try to get token from environment
-    if (typeof window !== 'undefined') {
-      const storedToken = localStorage.getItem('github_token');
-      if (storedToken) {
-        setToken(storedToken);
-        modelClient.setToken(storedToken);
-      }
-    }
 
     // Add system message for the selected model
     const systemMessage: Message = {
@@ -112,18 +102,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setSelectedModel(value as ModelType);
   };
 
-  const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setToken(e.target.value);
-  };
-
-  const saveToken = () => {
-    if (token && modelClientRef.current) {
-      localStorage.setItem('github_token', token);
-      modelClientRef.current.setToken(token);
-      alert('GitHub token saved!');
-    }
-  };
-
   const toggleCodingMode = () => {
     setIsCodingMode(!isCodingMode);
   };
@@ -141,12 +119,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     e.preventDefault();
     
     if (!input.trim() || !modelClientRef.current) return;
-
-    // Check if token is set
-    if (!token) {
-      alert('Please enter your GitHub token first');
-      return;
-    }
 
     const userMessage: Message = {
       role: 'user',
@@ -221,7 +193,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <Code className="h-4 w-4 mr-1" /> Close
           </Button>
         </div>
-        <div className="flex-1 bg-muted p-4">
+        <div className="flex-1 bg-muted p-4 overflow-auto">
           <pre className="text-sm">
             {/* Code editor would go here */}
             <code>// Ready for editing</code>
@@ -243,18 +215,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <h1 className="text-xl font-bold">BuildBox</h1>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="flex space-x-2">
-              <Input
-                type="password"
-                value={token}
-                onChange={handleTokenChange}
-                placeholder="GitHub Token"
-                className="w-60 h-9"
-              />
-              <Button onClick={saveToken} size="sm">
-                Save Token
-              </Button>
-            </div>
             <Select value={selectedModel} onValueChange={handleModelChange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select model" />
