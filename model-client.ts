@@ -1,5 +1,9 @@
 import { ModelType, ChatConfig, Message, ChatResponse, Tool } from './types';
 
+// Import the Azure AI modules statically
+import * as azureAIInference from '@azure-rest/ai-inference';
+import * as azureCoreAuth from '@azure/core-auth';
+
 /**
  * Client for interacting with AI models via their respective APIs.
  * Handles authentication, request formatting, and response parsing.
@@ -53,9 +57,10 @@ export class ModelClient {
       throw new Error(`Model configuration not found for type: ${modelType}`);
     }
 
-    // Import modules dynamically to avoid bundling issues
-    const { default: ModelClientLib, isUnexpected } = await import('@azure-rest/ai-inference');
-    const { AzureKeyCredential } = await import('@azure/core-auth');
+    // Use the statically imported modules
+    const ModelClientLib = azureAIInference.default || azureAIInference;
+    const { isUnexpected } = azureAIInference;
+    const { AzureKeyCredential } = azureCoreAuth;
 
     const client = ModelClientLib(
       modelConfig.endpoint,

@@ -61,7 +61,7 @@ export const getSystemPrompt = (modelType: ModelType): string => {
   const frontendInstructions = `
 <frontend_instructions>
   ARCHITECTURE GUIDELINES:
-  - Use a component-based architecture with React
+  - Use Next.js with App Router and React Server Components when appropriate
   - Implement state management with React Context or a lightweight state management solution
   - Create reusable UI components with clear documentation
   - Ensure responsive design for all screen sizes
@@ -72,7 +72,7 @@ export const getSystemPrompt = (modelType: ModelType): string => {
   - Implement real-time preview of website changes
   - Provide clean, well-documented client-side APIs for extensibility
   - Focus on progressive enhancement and graceful degradation
-  - Implement dark/light mode theming
+  - Implement dark/light mode theming with next-themes
   
   BEST PRACTICES:
   - Follow established React patterns for component composition
@@ -96,7 +96,7 @@ You excel at understanding complex requirements and generating clean, well-struc
 - Focus on security and best practices
 - Structure your responses with clear explanations
 - When building websites, ensure they run completely in the WebContainer environment
-- Use modern frameworks and techniques (React, Vue, etc.)
+- Use modern frameworks and techniques (React, Next.js, etc.)
 - For storage operations, use client-side storage with proper security measures
 
 As a senior developer, your goal is to help create robust, secure, and efficient solutions.`;
@@ -309,10 +309,9 @@ export const generateChatConfig = () => {
     webContainer: {
       enabled: true,
       defaultPackages: [
-        'vite',
+        'next',
         'react',
         'react-dom',
-        '@vitejs/plugin-react',
         'idb' // IndexedDB wrapper for easier usage
       ],
       supportedLanguages: ['javascript', 'typescript', 'html', 'css', 'json']

@@ -1,10 +1,11 @@
-import Layout from "./layout"
-import ChatInterface from "./chat-interface"
+"use client";
+
+import { ChatInterface } from './chat-interface';
 
 export default function Page() {
   return (
-    <Layout>
-      <ChatInterface />
-    </Layout>
-  )
+    <div className="min-h-screen flex">
+      <ChatInterface initialModel="combined" />
+    </div>
+  );
 }
