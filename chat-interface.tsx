@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ModelClient } from './model-client';
 import { ModelType, Message, ChatConfig } from './types';
 import { generateChatConfig, getSystemPrompt } from './system-prompt';
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Copy, Download, ThumbsUp, ThumbsDown } from 'lucide-react'
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Copy, Download, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
 interface ChatInterfaceProps {
   initialModel?: ModelType;
@@ -66,8 +67,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [selectedModel]);
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedModel(e.target.value as ModelType);
+  const handleModelChange = (value: string) => {
+    setSelectedModel(value as ModelType);
   };
 
   const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,82 +129,87 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white">
+    <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <header className="bg-gray-800 p-4 flex justify-between items-center">
-        <div className="flex items-center">
-          <div className="h-8 w-8 rounded-lg bg-violet-600 text-white flex items-center justify-center font-bold text-lg mr-2">B</div>
-          <h1 className="text-xl font-bold">BuildBox</h1>
-        </div>
-        <div className="flex items-center space-x-2">
-          <input
-            type="password"
-            value={token}
-            onChange={handleTokenChange}
-            placeholder="GitHub Token"
-            className="px-3 py-1 bg-gray-700 rounded-md text-white text-sm"
-          />
-          <button 
-            onClick={saveToken}
-            className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1 rounded-md text-sm"
-          >
-            Save Token
-          </button>
-          <select 
-            value={selectedModel}
-            onChange={handleModelChange}
-            className="bg-gray-700 text-white px-3 py-1 rounded-md text-sm"
-          >
-            {config.models.map(model => (
-              <option key={model.id} value={model.id}>
-                {model.name}
-              </option>
-            ))}
-          </select>
+      <header className="border-b py-4 px-6">
+        <div className="container mx-auto flex justify-between items-center">
+          <div className="flex items-center">
+            <div className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg mr-2">B</div>
+            <h1 className="text-xl font-bold">BuildBox</h1>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="flex space-x-2">
+              <Input
+                type="password"
+                value={token}
+                onChange={handleTokenChange}
+                placeholder="GitHub Token"
+                className="w-60 h-9"
+              />
+              <Button onClick={saveToken} size="sm">
+                Save Token
+              </Button>
+            </div>
+            <Select value={selectedModel} onValueChange={handleModelChange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                {config.models.map(model => (
+                  <SelectItem key={model.id} value={model.id}>
+                    {model.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.filter(msg => msg.role !== 'system').map((message, index) => (
-          <div 
-            key={index} 
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+      <ScrollArea className="flex-1 p-4">
+        <div className="container mx-auto space-y-4 max-w-4xl">
+          {messages.filter(msg => msg.role !== 'system').map((message, index) => (
             <div 
-              className={`max-w-3/4 p-3 rounded-lg ${
-                message.role === 'user' 
-                  ? 'bg-violet-600 text-white' 
-                  : 'bg-gray-700 text-white'
-              }`}
+              key={index} 
+              className={cn(
+                "flex",
+                message.role === 'user' ? "justify-end" : "justify-start"
+              )}
             >
-              <p className="whitespace-pre-wrap">{message.content}</p>
+              <div 
+                className={cn(
+                  "max-w-[80%] p-3 rounded-lg",
+                  message.role === 'user' 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted"
+                )}
+              >
+                <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+              </div>
             </div>
-          </div>
-        ))}
-        <div ref={chatEndRef} />
-      </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+      </ScrollArea>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 bg-gray-800">
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            className="flex-1 px-4 py-2 bg-gray-700 rounded-md text-white"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-700 rounded-md font-medium disabled:opacity-50"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Thinking...' : 'Send'}
-          </button>
-        </div>
-      </form>
+      <div className="border-t p-4">
+        <form onSubmit={handleSubmit} className="container mx-auto max-w-4xl">
+          <div className="flex space-x-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-1"
+              disabled={isLoading}
+            />
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Thinking...' : 'Send'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
