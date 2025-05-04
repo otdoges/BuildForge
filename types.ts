@@ -69,4 +69,31 @@ export interface ChatResponse {
     };
     finish_reason: string;
   }[];
+}
+
+export interface Options {
+  temperature?: number;
+  maxTokens?: number;
+  tools?: Tool[];
+  stream?: boolean;
+}
+
+export interface StorageItem<T> {
+  name: string;
+  value: T;
+}
+
+export interface WebsiteProject {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  files: ProjectFile[];
+}
+
+export interface ProjectFile {
+  path: string;
+  content: string;
+  type: 'html' | 'css' | 'javascript' | 'typescript' | 'json' | 'image' | 'other';
 } 
