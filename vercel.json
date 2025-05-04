@@ -12,7 +12,8 @@
     "NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL": "/chat", 
     "NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL": "/chat",
     "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key"
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "ENABLE_EXPERIMENTAL_COREPACK": "1"
   },
   "builds": [
     {
