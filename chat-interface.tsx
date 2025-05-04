@@ -14,6 +14,7 @@ import { MCPStatus } from '@/components/ui/mcp-status';
 import Image from 'next/image';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Loader2 } from "lucide-react";
+import { UserProfile } from "@/components/ui/user-profile";
 
 interface ChatInterfaceProps {
   initialModel?: ModelType;
@@ -330,6 +331,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             {modelClientRef.current && (
               <MCPStatus modelClient={modelClientRef.current} />
             )}
+            <UserProfile />
           </div>
         </div>
       </header>
