@@ -23,8 +23,8 @@ const nextConfig = {
     return config;
   },
   experimental: {
-    // Allow for proper handling of Node.js built-ins
-    serverExternalPackages: ['child_process'],
+    // Enable more modern features
+    esmExternals: true,
   },
 }
 

@@ -123,6 +123,13 @@ export class ModelClient {
   }
 
   /**
+   * Get the current token (for status checks)
+   */
+  getToken(): string | null {
+    return this.token;
+  }
+
+  /**
    * Get the model configuration by type
    */
   getModelConfig(modelType: ModelType) {
@@ -160,9 +167,12 @@ export class ModelClient {
     const { isUnexpected } = azureAIInference;
     const { AzureKeyCredential } = azureCoreAuth;
 
+    // Create proper Azure credential
+    const credential = new AzureKeyCredential(this.token);
+    
     const client = ModelClientLib(
       modelConfig.endpoint,
-      new AzureKeyCredential(this.token),
+      credential,
       modelType === 'o4-mini' ? { apiVersion: '2024-12-01-preview' } : undefined
     );
 

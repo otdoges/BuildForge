@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Download, ThumbsUp, ThumbsDown, Code } from 'lucide-react';
+import { Copy, Download, ThumbsUp, ThumbsDown, Code, AlertCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { MCPStatus } from '@/components/ui/mcp-status';
 import Image from 'next/image';
@@ -30,6 +30,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isCodingMode, setIsCodingMode] = useState(false);
   const [isServerProcessing, setIsServerProcessing] = useState(true);
   const [serverFailed, setServerFailed] = useState(false);
+  const [isUsingDefaultToken, setIsUsingDefaultToken] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const modelClientRef = useRef<ModelClient | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +40,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     const modelClient = new ModelClient(config);
     modelClientRef.current = modelClient;
+
+    // Check if we're using the default token
+    if (modelClient.getToken() === 'default_development_token') {
+      setIsUsingDefaultToken(true);
+    }
 
     // Add system message for the selected model
     const systemMessage: Message = {
@@ -115,6 +123,30 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsServerProcessing(!isServerProcessing);
   };
 
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const saveApiKey = () => {
+    if (apiKey && modelClientRef.current) {
+      modelClientRef.current.setToken(apiKey);
+      setIsUsingDefaultToken(false);
+      setShowApiKeyInput(false);
+      // Show confirmation feedback
+      setMessages(prev => [
+        ...prev, 
+        {
+          role: 'assistant',
+          content: '✅ API key has been updated.'
+        }
+      ]);
+    }
+  };
+
+  const toggleApiKeyInput = () => {
+    setShowApiKeyInput(!showApiKeyInput);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -130,44 +162,60 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLoading(true);
 
     try {
-      // Try server processing first if enabled
-      if (isServerProcessing && !serverFailed) {
-        try {
-          const response = await modelClientRef.current.chatCompletion(
-            selectedModel,
-            [...messages, userMessage],
-            { useMCP: true } // Enable MCP for sequential thinking
-          );
+      // Get model config to determine endpoint, etc.
+      const modelConfig = modelClientRef.current.getModelConfig(selectedModel);
+      if (!modelConfig) {
+        throw new Error(`Model configuration not found for type: ${selectedModel}`);
+      }
 
-          if (response.choices && response.choices.length > 0) {
-            const assistantMessage: Message = {
-              role: 'assistant',
-              content: response.choices[0].message.content
-            };
-            setMessages(prev => [...prev, assistantMessage]);
-            setIsLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Server processing failed, falling back to client:', error);
-          // If server processing fails, continue to client processing
-          if (!serverFailed) {
-            setServerFailed(true);
-          }
+      // Build the request payload
+      const allMessages = [...messages, userMessage];
+      const requestBody = {
+        messages: allMessages,
+        model: modelConfig.modelId,
+        temperature: modelConfig.temperature,
+        max_tokens: modelConfig.maxTokens
+      };
+
+      // Direct POST request
+      const token = modelClientRef.current.getToken() || 'default_development_token';
+      
+      // Determine the authorization header format based on endpoint
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Azure OpenAI expects "api-key", some other APIs expect "Authorization: Bearer"
+      if (modelConfig.endpoint.includes('openai.azure.com')) {
+        headers['api-key'] = token;
+      } else {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(modelConfig.endpoint + '/chat/completions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+        } else {
+          // Handle non-JSON error responses
+          const errorText = await response.text();
+          throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`);
         }
       }
 
-      // Client processing (or fallback)
-      const response = await modelClientRef.current.chatCompletion(
-        selectedModel,
-        [...messages, userMessage],
-        { useMCP: false } // Disable MCP for client-side processing
-      );
-
-      if (response.choices && response.choices.length > 0) {
+      const responseData = await response.json();
+      
+      if (responseData.choices && responseData.choices.length > 0) {
         const assistantMessage: Message = {
           role: 'assistant',
-          content: response.choices[0].message.content
+          content: responseData.choices[0].message.content
         };
         setMessages(prev => [...prev, assistantMessage]);
       }
@@ -213,8 +261,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <Image src="/logo.svg" alt="BuildBox Logo" width={32} height={32} />
             </div>
             <h1 className="text-xl font-bold">BuildBox</h1>
+            {isUsingDefaultToken && (
+              <div 
+                className="ml-2 flex items-center text-yellow-500 cursor-pointer hover:underline" 
+                title="Using default development token. Click to set your own API key."
+                onClick={toggleApiKeyInput}
+              >
+                <AlertCircle className="h-4 w-4 mr-1" />
+                <span className="text-xs">Set API key</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center space-x-3">
+            {showApiKeyInput && (
+              <div className="flex space-x-2">
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={handleApiKeyChange}
+                  placeholder="Enter API key"
+                  className="w-60 h-9"
+                />
+                <Button onClick={saveApiKey} size="sm">
+                  Save
+                </Button>
+                <Button onClick={toggleApiKeyInput} variant="ghost" size="sm">
+                  Cancel
+                </Button>
+              </div>
+            )}
             <Select value={selectedModel} onValueChange={handleModelChange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select model" />
@@ -227,6 +302,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            {!showApiKeyInput && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleApiKeyInput} 
+                title="Change API key"
+              >
+                API Key
+              </Button>
+            )}
             <Button 
               variant={isServerProcessing ? "default" : "outline"}
               size="sm"
