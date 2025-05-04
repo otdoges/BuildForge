@@ -4,6 +4,13 @@ import { ModelType, ChatConfig, Message, ChatResponse, Tool, MCPServer } from '.
 import * as azureAIInference from '@azure-rest/ai-inference';
 import * as azureCoreAuth from '@azure/core-auth';
 
+// For server-side only imports
+const isServer = typeof window === 'undefined';
+// Only import on server side
+const importChildProcess = isServer 
+  ? () => import('child_process').then(mod => mod) 
+  : () => Promise.resolve(null);
+
 /**
  * Client for interacting with AI models via their respective APIs.
  * Handles authentication, request formatting, and response parsing.
@@ -26,43 +33,57 @@ export class ModelClient {
    * Start MCP server processes if configured
    */
   async startMCPServers(): Promise<void> {
-    if (!this.config.mcpServers || typeof process === 'undefined') {
+    if (!this.config.mcpServers || !isServer) {
       return;
     }
 
-    const { spawn } = require('child_process');
-
-    for (const [serverName, serverConfig] of Object.entries(this.config.mcpServers)) {
-      try {
-        console.log(`Starting MCP server: ${serverName}`);
-        const serverProcess = spawn(serverConfig.command, serverConfig.args, {
-          stdio: 'pipe'
-        });
-
-        serverProcess.stdout.on('data', (data: Buffer) => {
-          console.log(`[${serverName}] ${data.toString().trim()}`);
-        });
-
-        serverProcess.stderr.on('data', (data: Buffer) => {
-          console.error(`[${serverName}] ${data.toString().trim()}`);
-        });
-
-        serverProcess.on('close', (code: number) => {
-          console.log(`MCP server ${serverName} exited with code ${code}`);
-          delete this.mcpServerProcesses[serverName];
-        });
-
-        this.mcpServerProcesses[serverName] = serverProcess;
-      } catch (error) {
-        console.error(`Failed to start MCP server ${serverName}:`, error);
+    try {
+      const childProcessModule = await importChildProcess();
+      if (!childProcessModule) {
+        console.warn('child_process module not available in this environment');
+        return;
       }
+      
+      const { spawn } = childProcessModule;
+
+      for (const [serverName, serverConfig] of Object.entries(this.config.mcpServers)) {
+        try {
+          console.log(`Starting MCP server: ${serverName}`);
+          const serverProcess = spawn(serverConfig.command, serverConfig.args, {
+            stdio: 'pipe'
+          });
+
+          serverProcess.stdout.on('data', (data: Buffer) => {
+            console.log(`[${serverName}] ${data.toString().trim()}`);
+          });
+
+          serverProcess.stderr.on('data', (data: Buffer) => {
+            console.error(`[${serverName}] ${data.toString().trim()}`);
+          });
+
+          serverProcess.on('close', (code: number) => {
+            console.log(`MCP server ${serverName} exited with code ${code}`);
+            delete this.mcpServerProcesses[serverName];
+          });
+
+          this.mcpServerProcesses[serverName] = serverProcess;
+        } catch (error) {
+          console.error(`Failed to start MCP server ${serverName}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to import child_process module:', error);
     }
   }
 
   /**
    * Stop all running MCP server processes
    */
-  stopMCPServers(): void {
+  async stopMCPServers(): Promise<void> {
+    if (!isServer || Object.keys(this.mcpServerProcesses).length === 0) {
+      return;
+    }
+    
     for (const [serverName, process] of Object.entries(this.mcpServerProcesses)) {
       console.log(`Stopping MCP server: ${serverName}`);
       process.kill();
