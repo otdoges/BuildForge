@@ -10,6 +10,11 @@ export class ModelClient {
 
   constructor(config: ChatConfig) {
     this.config = config;
+    
+    // Try to get token from environment variable if available
+    if (typeof process !== 'undefined' && process.env && process.env.GITHUB_TOKEN) {
+      this.token = process.env.GITHUB_TOKEN;
+    }
   }
 
   /**
@@ -40,7 +45,7 @@ export class ModelClient {
     } = {}
   ): Promise<ChatResponse> {
     if (!this.token) {
-      throw new Error('Authentication token not set. Call setToken() first.');
+      throw new Error('Authentication token not set. Call setToken() first or set GITHUB_TOKEN environment variable.');
     }
 
     const modelConfig = this.getModelConfig(modelType);
@@ -105,7 +110,7 @@ export class ModelClient {
     const updatedMessages = [
       ...messages,
       {
-        role: 'tool',
+        role: 'tool' as const,
         tool_call_id: toolCall.id,
         name: functionName,
         content: typeof functionResult === 'string' ? functionResult : JSON.stringify(functionResult)
@@ -130,9 +135,13 @@ export class ModelClient {
       return;
     }
 
+    const encryptionKey = typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
+      ? process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
+      : 'default-encryption-key';
+
     // Simple encryption (for better security, use a proper encryption library)
     const encryptedValue = this.config.security.encryptionEnabled
-      ? btoa(keyValue) // Basic encoding, not true encryption
+      ? this.encryptValue(keyValue, encryptionKey) // Better encryption with key
       : keyValue;
 
     return new Promise((resolve, reject) => {
@@ -171,6 +180,10 @@ export class ModelClient {
       return null;
     }
 
+    const encryptionKey = typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
+      ? process.env.NEXT_PUBLIC_ENCRYPTION_KEY 
+      : 'default-encryption-key';
+
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('BuildBoxApiKeys', 1);
 
@@ -185,7 +198,7 @@ export class ModelClient {
           const result = getRequest.result;
           if (result) {
             const decryptedValue = this.config.security.encryptionEnabled
-              ? atob(result.value) // Basic decoding
+              ? this.decryptValue(result.value, encryptionKey) // Better decryption with key
               : result.value;
             resolve(decryptedValue);
           } else {
@@ -200,5 +213,31 @@ export class ModelClient {
 
       request.onerror = () => reject(new Error('Failed to open database'));
     });
+  }
+
+  /**
+   * Simple encryption method (XOR with key)
+   * Note: This is not secure for production use, just a simple example
+   */
+  private encryptValue(value: string, key: string): string {
+    let result = '';
+    for (let i = 0; i < value.length; i++) {
+      const charCode = value.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      result += String.fromCharCode(charCode);
+    }
+    return btoa(result); // Base64 encode the result
+  }
+
+  /**
+   * Simple decryption method (XOR with key)
+   */
+  private decryptValue(encryptedValue: string, key: string): string {
+    const encrypted = atob(encryptedValue); // Base64 decode
+    let result = '';
+    for (let i = 0; i < encrypted.length; i++) {
+      const charCode = encrypted.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      result += String.fromCharCode(charCode);
+    }
+    return result;
   }
 } 

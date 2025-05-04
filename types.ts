@@ -1,9 +1,9 @@
-export type ModelType = 'gpt-4.1' | 'o4-mini' | 'llama-maverick' | 'default';
+export type ModelType = 'gpt-4.1' | 'o4-mini' | 'llama-maverick' | 'phi-4-reasoning' | 'gpt-4.1-nano' | 'combined' | 'default';
 
 export interface ModelConfig {
   id: string;
   name: string;
-  provider: 'openai' | 'meta' | 'anthropic' | 'mistral' | string;
+  provider: 'openai' | 'meta' | 'anthropic' | 'mistral' | 'microsoft' | 'buildbox' | string;
   endpoint: string;
   modelId: string;
   description: string;
