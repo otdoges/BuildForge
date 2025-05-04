@@ -1,7 +1,19 @@
 [build]
-  command = "bun run build"
-  publish = ".next"
+  command = "npm run build"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  BUN_VERSION = "1.2.11"
+
+# Support for various frontend frameworks
+[context.production]
+  command = "npm run build"
+
+[context.deploy-preview]
+  command = "npm run build"
+
+# Handle SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

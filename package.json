@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^4.0.0",
     "@hookform/resolvers": "^3.9.1",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-accordion": "1.2.2",
@@ -51,6 +52,7 @@
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
+    "netlify": "^13.3.5",
     "next": "15.2.4",
     "next-themes": "^0.4.4",
     "react": "^19",
@@ -65,8 +67,7 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
-    "zod": "^3.24.3",
-    "@clerk/nextjs": "^4.0.0"
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "@types/node": "^22",
