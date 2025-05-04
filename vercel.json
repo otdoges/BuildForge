@@ -1,5 +1,21 @@
 {
   "buildCommand": "pnpm install --no-frozen-lockfile && pnpm build",
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_TELEMETRY_DISABLED": "1"
+  },
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ]
 } 

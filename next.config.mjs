@@ -26,6 +26,10 @@ const nextConfig = {
     // Enable more modern features
     esmExternals: true,
   },
+  // Configure Vercel output
+  output: 'standalone',
+  // Disable webpack5 telemetry during build
+  poweredByHeader: false,
 }
 
 export default nextConfig
