@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { MCPStatus } from '@/components/ui/mcp-status';
 
 interface ChatInterfaceProps {
   initialModel?: ModelType;
@@ -47,6 +48,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       content: getSystemPrompt(selectedModel)
     };
     setMessages([systemMessage]);
+
+    // Start MCP servers if configured
+    const startServers = async () => {
+      try {
+        await modelClient.startMCPServers();
+      } catch (error) {
+        console.error('Failed to start MCP servers:', error);
+      }
+    };
+    
+    startServers();
+
+    // Cleanup on unmount
+    return () => {
+      if (modelClientRef.current) {
+        modelClientRef.current.stopMCPServers();
+      }
+    };
   }, [config]);
 
   // Scroll to bottom when messages change
@@ -106,7 +125,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     try {
       const response = await modelClientRef.current.chatCompletion(
         selectedModel,
-        [...messages, userMessage]
+        [...messages, userMessage],
+        { useMCP: true } // Enable MCP for sequential thinking
       );
 
       if (response.choices && response.choices.length > 0) {
@@ -162,6 +182,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            {modelClientRef.current && (
+              <MCPStatus modelClient={modelClientRef.current} />
+            )}
           </div>
         </div>
       </header>

@@ -324,6 +324,15 @@ export const generateChatConfig = () => {
       theme: 'dark' as const,
       branding: 'BuildBox',
       showModelSelection: true
+    },
+    mcpServers: {
+      'sequential-thinking': {
+        command: 'npx',
+        args: [
+          '-y',
+          '@modelcontextprotocol/server-sequential-thinking'
+        ]
+      }
     }
   };
 }; 

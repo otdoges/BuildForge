@@ -11,6 +11,15 @@ export interface ModelConfig {
   temperature: number;
 }
 
+export interface MCPServer {
+  command: string;
+  args: string[];
+}
+
+export interface MCPServers {
+  [key: string]: MCPServer;
+}
+
 export interface WebContainerConfig {
   enabled: boolean;
   defaultPackages: string[];
@@ -33,6 +42,7 @@ export interface ChatConfig {
   webContainer: WebContainerConfig;
   security: SecurityConfig;
   ui: UIConfig;
+  mcpServers?: MCPServers;
 }
 
 export interface Message {

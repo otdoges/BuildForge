@@ -1,4 +1,4 @@
-import { ModelType, ChatConfig, Message, ChatResponse, Tool } from './types';
+import { ModelType, ChatConfig, Message, ChatResponse, Tool, MCPServer } from './types';
 
 // Import the Azure AI modules statically
 import * as azureAIInference from '@azure-rest/ai-inference';
@@ -11,6 +11,7 @@ import * as azureCoreAuth from '@azure/core-auth';
 export class ModelClient {
   private config: ChatConfig;
   private token: string | null = null;
+  private mcpServerProcesses: Record<string, any> = {};
 
   constructor(config: ChatConfig) {
     this.config = config;
@@ -19,6 +20,54 @@ export class ModelClient {
     if (typeof process !== 'undefined' && process.env && process.env.GITHUB_TOKEN) {
       this.token = process.env.GITHUB_TOKEN;
     }
+  }
+
+  /**
+   * Start MCP server processes if configured
+   */
+  async startMCPServers(): Promise<void> {
+    if (!this.config.mcpServers || typeof process === 'undefined') {
+      return;
+    }
+
+    const { spawn } = require('child_process');
+
+    for (const [serverName, serverConfig] of Object.entries(this.config.mcpServers)) {
+      try {
+        console.log(`Starting MCP server: ${serverName}`);
+        const serverProcess = spawn(serverConfig.command, serverConfig.args, {
+          stdio: 'pipe'
+        });
+
+        serverProcess.stdout.on('data', (data: Buffer) => {
+          console.log(`[${serverName}] ${data.toString().trim()}`);
+        });
+
+        serverProcess.stderr.on('data', (data: Buffer) => {
+          console.error(`[${serverName}] ${data.toString().trim()}`);
+        });
+
+        serverProcess.on('close', (code: number) => {
+          console.log(`MCP server ${serverName} exited with code ${code}`);
+          delete this.mcpServerProcesses[serverName];
+        });
+
+        this.mcpServerProcesses[serverName] = serverProcess;
+      } catch (error) {
+        console.error(`Failed to start MCP server ${serverName}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Stop all running MCP server processes
+   */
+  stopMCPServers(): void {
+    for (const [serverName, process] of Object.entries(this.mcpServerProcesses)) {
+      console.log(`Stopping MCP server: ${serverName}`);
+      process.kill();
+    }
+    this.mcpServerProcesses = {};
   }
 
   /**
@@ -46,6 +95,7 @@ export class ModelClient {
       maxTokens?: number;
       tools?: Tool[];
       stream?: boolean;
+      useMCP?: boolean;
     } = {}
   ): Promise<ChatResponse> {
     if (!this.token) {
@@ -56,6 +106,9 @@ export class ModelClient {
     if (!modelConfig) {
       throw new Error(`Model configuration not found for type: ${modelType}`);
     }
+
+    // Check if we should use MCP for sequential thinking
+    const useMCP = options.useMCP !== false && this.config.mcpServers && 'sequential-thinking' in this.config.mcpServers;
 
     // Use the statically imported modules
     const ModelClientLib = azureAIInference.default || azureAIInference;
@@ -79,6 +132,13 @@ export class ModelClient {
     // Add tools if provided
     if (options.tools && options.tools.length > 0) {
       requestBody.tools = options.tools;
+    }
+
+    // Add MCP configuration when enabled
+    if (useMCP) {
+      requestBody.mcp = {
+        server: 'sequential-thinking'
+      };
     }
 
     const response = await client.path('/chat/completions').post({
